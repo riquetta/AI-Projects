@@ -1,0 +1,16 @@
+Title,InternalTitle,IncidentId
+Phishing Attack Detected,CYB-PHISH-001,INC-4765
+Malware Infection,CYB-MAL-002,INC-9466
+Unauthorized Access Attempt,CYB-UNAUTH-003,INC-8030
+Data Breach Investigation,CYB-BREACH-004,INC-3808
+Ransomware Alert,CYB-RANSOM-005,INC-5192
+Suspicious Network Activity,CYB-NET-006,INC-1973
+Credential Stuffing Attack,CYB-CRED-007,INC-3208
+DDoS Attack Mitigation,CYB-DDOS-008,INC-5340
+Insider Threat Detected,CYB-INSIDER-009,INC-5431
+Zero-Day Exploit,CYB-ZERO-010,INC-2253
+SQL Injection Attempt,CYB-SQL-011,INC-8200
+Privilege Escalation,CYB-PRIV-012,INC-5730
+Brute Force Login Attempts,CYB-BRUTE-013,INC-6988
+Email Spoofing Incident,CYB-SPOOF-014,INC-7667
+Firewall Breach,CYB-FIRE-015,INC-7481
