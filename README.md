@@ -60,8 +60,8 @@ sequenceDiagram
 
 ```bash
 # 1️⃣ Clone this repository
-git clone https://github.com/your-username/incident-search-system.git
-cd incident-search-system
+git clone https://github.com/riquetta/AI-Projects.git
+cd AI-Projects
 
 # 2️⃣ Create and activate a virtual environment
 python -m venv venv
