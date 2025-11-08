@@ -38,11 +38,11 @@ def search_cases(query, threshold=0.55):
 
     return results[["IncidentId", "Title", "InternalTitle", "similarity"]]
 
-# ---- Gradio wrapper ----
+#  Gradio wrapper function
 def case_search(query, threshold):
     return search_cases(query, threshold=threshold)
 
-# ---- Gradio UI ----
+#  Gradio UI 
 iface = gr.Interface(
     fn=case_search,
     inputs=[
