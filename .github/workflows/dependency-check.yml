@@ -1,4 +1,4 @@
-name: Dependency Vulnerability Scan
+name: Dependency Vulnerability Scan python-base-app
 
 on:
   push:
@@ -13,16 +13,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # ------------------------------
-  # Python (pip / Poetry / Pipfile)
-  # ------------------------------
   python-deps:
     name: Python dependency scan (pip-audit)
-    if: >
-      hashFiles('**/base-app/equirements.txt') != '' ||
-      hashFiles('**/base-app/poetry.lock') != '' ||
-      hashFiles('**/base-app.Pipfile.lock') != ''
+    if: ${{ hashFiles('base-app/requirements.txt', 'base-app/poetry.lock', 'base-app/Pipfile.lock') != '' }}
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
@@ -34,10 +29,11 @@ jobs:
         run: pip install --upgrade pip pip-audit
 
       - name: Resolve and audit dependencies
+        working-directory: base-app
         shell: bash
         run: |
           set -euo pipefail
-          REPORT_DIR="reports/python"
+          REPORT_DIR="../reports/python"
           mkdir -p "$REPORT_DIR"
 
           if [ -f requirements.txt ]; then
@@ -59,6 +55,8 @@ jobs:
             pip install -r exported-requirements.txt
             pip-audit -r exported-requirements.txt -f json -o "$REPORT_DIR/pip-audit.json"
             pip-audit -r exported-requirements.txt --strict
+          else
+            echo "No dependency files found in base-app/"
           fi
 
       - name: Upload Python scan report
