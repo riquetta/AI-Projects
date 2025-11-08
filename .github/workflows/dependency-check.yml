@@ -1,66 +1,98 @@
-name: Python Dependency Scan
+name: Dependency Vulnerability Scan
 
 on:
   push:
-    paths:
-      - "base-app/**"
-      - ".github/workflows/deps-scan.yml"
+    branches: [ main ]
   pull_request:
-    paths:
-      - "base-app/**"
-  schedule:
-    - cron: "0 6 * * 1"  # Weekly Monday 06:00 UTC scan
 
 permissions:
   contents: read
-  security-events: write   # required to upload SARIF to code scanning
-  actions: read
+
+concurrency:
+  group: dependency-scan-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  pip-audit:
-    name: pip-audit (deps)
+  python-deps:
+    name: Python Dependency Scan (pip-audit)
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: base-app
 
     steps:
-      - name: Checkout
+      # ----------------------------
+      # Checkout code
+      # ----------------------------
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      # ----------------------------
+      # Setup Python
+      # ----------------------------
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: '3.x'
 
-      - name: Cache pip
-        uses: actions/cache@v4
+      # ----------------------------
+      # Determine if dependency files exist
+      # ----------------------------
+      - name: Check for dependency files
+        id: deps
+        run: |
+          FILES_CHANGED=0
+          if [ -f base-app/requirements.txt ] || [ -f base-app/poetry.lock ] || [ -f base-app/Pipfile.lock ]; then
+            FILES_CHANGED=1
+          fi
+          echo "changed=$FILES_CHANGED" >> $GITHUB_OUTPUT
+
+      # ----------------------------
+      # Install pip-audit and run scan
+      # ----------------------------
+      - name: Run pip-audit
+        if: steps.deps.outputs.changed == '1'
+        working-directory: base-app
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPORT_DIR="../reports/python"
+          mkdir -p "$REPORT_DIR"
+
+          pip install --upgrade pip pip-audit
+
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+            pip-audit -r requirements.txt -f json -o "$REPORT_DIR/pip-audit.json"
+            pip-audit -r requirements.txt -f sarif -o "$REPORT_DIR/pip-audit-results.sarif" --strict
+          elif [ -f poetry.lock ]; then
+            pip install poetry
+            poetry export -f requirements.txt -o exported-requirements.txt --without-hashes
+            pip install -r exported-requirements.txt
+            pip-audit -r exported-requirements.txt -f json -o "$REPORT_DIR/pip-audit.json"
+            pip-audit -r exported-requirements.txt -f sarif -o "$REPORT_DIR/pip-audit-results.sarif" --strict
+          elif [ -f Pipfile.lock ]; then
+            pip install pipenv
+            pipenv requirements > exported-requirements.txt
+            pip install -r exported-requirements.txt
+            pip-audit -r exported-requirements.txt -f json -o "$REPORT_DIR/pip-audit.json"
+            pip-audit -r exported-requirements.txt -f sarif -o "$REPORT_DIR/pip-audit-results.sarif" --strict
+          else
+            echo "No dependency files found in base-app/"
+          fi
+
+      # ----------------------------
+      # Upload JSON and SARIF reports as artifacts
+      # ----------------------------
+      - name: Upload Python dependency reports
+        if: steps.deps.outputs.changed == '1'
+        uses: actions/upload-artifact@v4
         with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('base-app/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
+          name: python-dependency-reports
+          path: reports/python/
 
-      - name: Install app dependencies (no dev extras)
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      # Generate a lockfile on the fly to make resolution deterministic for the audit.
-      # If you already have a compiled requirements (e.g., requirements.lock.txt), point pip-audit at it.
-      - name: Create resolved requirements (freeze)
-        run: |
-          pip freeze --local | sort > resolved-requirements.txt
-
-      - name: Run pip-audit (fail on vulns and emit SARIF)
-        # --strict makes nonzero exit on any vulnerability
-        run: |
-          python -m pip install pip-audit
-          pip-audit -r resolved-requirements.txt --progress-spinner off \
-            --format sarif -o pip-audit-results.sarif --strict
-
-      - name: Upload SARIF to code scanning
-        if: always()  # upload even if the previous step failed
-        uses: github/codeql-action/upload-sarif@v3
+      # ----------------------------
+      # Upload SARIF for GitHub Dependency Scanning
+      # ----------------------------
+      - name: Upload pip-audit SARIF to GitHub
+        if: steps.deps.outputs.changed == '1'
+        uses: github/codeql-action/upload-sarif@v2
         with:
-          sarif_file: base-app/pip-audit-results.sarif
+          sarif_file: reports/python/pip-audit-results.sarif
